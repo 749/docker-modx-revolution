@@ -1,0 +1,20 @@
+localhost {
+	root * /srv
+	@rewritable {
+		not file
+		not path /assets/* /manager/* /connectors/*
+	}
+	rewrite @rewritable /index.php?{query}&q={path}
+	rewrite /manager/ /manager/index.php
+	@no_exec {
+		not file
+		not path /assets/* /setup/*
+	}
+	reverse_proxy @no_exec modx_php:9000 {
+		transport fastcgi {
+			root /modx/public
+			split .php
+		}
+	}
+	file_server
+}

@@ -1,14 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
 PATH_MODX_CORE=/modx/core
 PATH_MODX_PUBLIC=/modx/public
+PATH_MODX_SETUP=/modx/public/setup
 PATH_MODX_CORE_CONFIG_PHP=/modx/config.core.php.tmpl
 
 setup_config_core() {
 	cd $PATH_MODX_PUBLIC
-	CONFIGS=`find -name "config.core.php" | tr '\n' ' '`
-	tee $CONFIGS <$PATH_MODX_CORE_CONFIG_PHP >/dev/null
+	find -name "config.core.php" | while read line ; do
+		rm $line;
+		cp $PATH_MODX_CORE_CONFIG_PHP $line
+	done
 }
 
 if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
@@ -45,134 +48,70 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 		exit 1
 	fi
 
-	TERM=dumb php -- "$MODX_DB_HOST" "$MODX_DB_USER" "$MODX_DB_PASSWORD" "$MODX_DB_NAME" <<'EOPHP'
-<?php
-$stderr = fopen('php://stderr', 'w');
+	TERM=dumb php -- "$MODX_DB_HOST" "$MODX_DB_USER" "$MODX_DB_PASSWORD" "$MODX_DB_NAME" </docker-entrypoint/create-database.php
 
-list($host, $port) = explode(':', $argv[1], 2);
-
-$maxTries = 10;
-do {
-	$mysql = new mysqli($host, $argv[2], $argv[3], '', (int)$port);
-	if ($mysql->connect_error) {
-		fwrite($stderr, "\n" . 'MySQL Connection Error: (' . $mysql->connect_errno . ') ' . $mysql->connect_error . "\n");
-		--$maxTries;
-		if ($maxTries <= 0) {
-			exit(1);
-		}
-		sleep(3);
-	}
-} while ($mysql->connect_error);
-
-if (!$mysql->query('CREATE DATABASE IF NOT EXISTS `' . $mysql->real_escape_string($argv[4]) . '` ' .
-	'DEFAULT CHARACTER SET = \'utf8\' DEFAULT COLLATE \'utf8_general_ci\'')) {
-
-	fwrite($stderr, "\n" . 'MySQL "CREATE DATABASE" Error: ' . $mysql->error . "\n");
-	$mysql->close();
-	exit(1);
-}
-
-$mysql->close();
-EOPHP
+	setup_config_core
 
 	if ! [ -e index.php -a -e ../core/config/config.inc.php ]; then
-		echo "MODX not found in $(pwd) - copying now..." >&2
-
-		if [ "$(ls -A)" ]; then
-			echo "WARNING: $(pwd) is not empty - press Ctrl+C now if this is an error!" >&2
-			( set -x; ls -A; sleep 10 )
-		fi
-
-		tar cf - --one-file-system -C /usr/src/modx . | tar xf -
-		mkdir -p $PATH_MODX_CORE
-		cd $PATH_MODX_CORE
-		tar cf - --one-file-system -C "$PATH_MODX_PUBLIC/core" . | tar xf -
-		cd $PATH_MODX_PUBLIC
-		rm -rf core
-		setup_config_core
+		echo "MODX not installed yet, installing..." >&2
 
 		touch /modx/core/config/config.inc.php
 		chown -R www-data:www-data /modx
 
-    echo "Complete! MODX has been successfully copied to $(pwd)" >&2
-
 		: ${MODX_ADMIN_USER:='admin'}
 		: ${MODX_ADMIN_PASSWORD:='admin'}
 
-		cat > setup/config.xml <<EOF
-<modx>
-	<database_type>mysql</database_type>
-	<database_server>$MODX_DB_HOST</database_server>
-	<database>$MODX_DB_NAME</database>
-	<database_user>$MODX_DB_USER</database_user>
-	<database_password>$MODX_DB_PASSWORD</database_password>
-	<database_connection_charset>utf8</database_connection_charset>
-	<database_charset>utf8</database_charset>
-	<database_collation>utf8_general_ci</database_collation>
-	<table_prefix>$MODX_TABLE_PREFIX</table_prefix>
-	<https_port>443</https_port>
-	<http_host>localhost</http_host>
-	<cache_disabled>0</cache_disabled>
+		envsubst >setup/config.xml </docker-entrypoint/install.xml
 
-	<inplace>1</inplace>
-	<unpacked>0</unpacked>
-	<language>en</language>
-
-	<cmsadmin>$MODX_ADMIN_USER</cmsadmin>
-	<cmspassword>$MODX_ADMIN_PASSWORD</cmspassword>
-	<cmsadminemail>$MODX_ADMIN_EMAIL</cmsadminemail>
-
-	<core_path>/modx/core/</core_path>
-	<context_mgr_path>/modx/public/manager/</context_mgr_path>
-	<context_mgr_url>/manager/</context_mgr_url>
-	<context_connectors_path>/modx/public/connectors/</context_connectors_path>
-	<context_connectors_url>/connectors/</context_connectors_url>
-	<context_web_path>/modx/public/</context_web_path>
-	<context_web_url>/</context_web_url>
-
-	<remove_setup_directory>1</remove_setup_directory>
-</modx>
-EOF
 		chown www-data:www-data setup/config.xml
 
     sudo -u www-data php setup/index.php --installmode=new
+
+		echo "$MODX_VERSION" >/modx/core/config/install_version.txt
+
+		setup_config_core
+		
+		echo "Complete! MODX has been successfully installed" >&2
   else
-		UPGRADE=$(TERM=dumb php -- "$MODX_VERSION" <<'EOPHP'
-<?php
-define('MODX_API_MODE', true);
-require_once 'index.php';
+		UPGRADE=$(TERM=dumb php -- "$MODX_VERSION" </docker-entrypoint/compare-version.php)
 
-if (version_compare($modx->getVersionData()['full_version'], $argv[1]) == -1) {
-	echo 1;
-}
-EOPHP
-)
-
-		if [ $UPGRADE ]; then
+		if [ "$UPGRADE" -eq "1" ]; then
 			echo >&2 "Upgrading MODX..."
 
-			sudo -u www-data mkdir setup
+			if [ ! -d "$PATH_MODX_SETUP" ]; then
+				sudo -u www-data mkdir "$PATH_MODX_SETUP"
 
-			tar cf - --one-file-system -C /usr/src/modx/setup . | tar xf - -C setup
+				tar cf - --one-file-system -C /usr/src/modx/setup . | tar xf - -C $PATH_MODX_SETUP
 
-			setup_config_core
+				setup_config_core
+			fi
+
+			envsubst > config.xml </docker-entrypoint/upgrade.xml
 
 			chown -R www-data:www-data /modx
 
-			cat > setup/config.xml <<EOF
-<modx>
-	<inplace>1</inplace>
-	<unpacked>0</unpacked>
-	<language>en</language>
-	<remove_setup_directory>1</remove_setup_directory>
-</modx>
-EOF
-			chown www-data:www-data setup/config.xml
-
 			sudo -u www-data php setup/index.php --installmode=upgrade
+
+			echo "$MODX_VERSION" >/modx/core/config/install_version.txt
+
+			setup_config_core
+
+			echo "Complete! MODX has been successfully upgraded to $MODX_VERSION" >&2
+		elif [ "$UPGRADE" -eq "0" ]; then
+			echo "ModX already up to date."
+		else
+			echo "Unexpected version check output: $UPGRADE"
 		fi
 	fi
 fi
+
+#export static files
+chown -R www-data:www-data /modx
+cd /modx/public
+rm -rf setup/
+
+rsync -a --exclude='*.php' manager /modx/static
+
 
 echo "Starting up $@"
 exec "$@"

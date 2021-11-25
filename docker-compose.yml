@@ -12,26 +12,58 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 version: '3'
 services:
-  web:
-    image: g749/modx-revolution:edge
+  modx_web:
+    image: caddy:2
+    restart: unless-stopped
     env_file: .env
+    depends_on:
+      - modx_php
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data:rw
+      - modx_static_manager:/srv/manager:ro
+      - modx_assets:/srv/assets:ro
+    networks:
+      - http_net
+  modx_php:
+    image: g749/modx-revolution:2
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      - modx_mysql
     volumes:
       - modx_config:/modx/core/config:rw
       - modx_packages:/modx/core/packages:rw
       - modx_components:/modx/core/components:rw
       - modx_assets:/modx/public/assets:rw
-  mysql:
+      - modx_static_manager:/modx/static/manager:rw
+    networks:
+      - http_net
+      - db_net
+  modx_mysql:
     image: 'mariadb:10'
+    restart: unless-stopped
     env_file: .env
     environment:
       MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: false
       MARIADB_RANDOM_ROOT_PASSWORD: true
     volumes:
       - 'mariadb_data:/var/lib/mysql:rw'
+    networks:
+      - db_net
 
 volumes: 
+  caddy_data:
   mariadb_data:
   modx_config:
   modx_packages:
   modx_components:
   modx_assets:
+  modx_static_manager:
+
+networks:
+  db_net:
+  http_net:
