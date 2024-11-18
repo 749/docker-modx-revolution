@@ -11,7 +11,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM php:7-fpm-alpine
+FROM php:8-fpm-alpine
 
 LABEL org.opencontainers.image.authors="Jan Giesenberg <749@github.com>"
 
@@ -22,7 +22,7 @@ RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev unzip sudo bash ge
 	&& docker-php-ext-install -j$(nproc) gd opcache mysqli pdo pdo_mysql \
 	&& rm -rf /usr/src/php/
 
-ARG MODX_VERSION 2.8.2
+ARG MODX_VERSION 2.8.7
 ENV MODX_VERSION ${MODX_VERSION}
 
 # upstream tarballs include ./modx-${MODX_VERSION}/
