@@ -11,25 +11,20 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM php:8-fpm-alpine
-
-LABEL org.opencontainers.image.authors="Jan Giesenberg <749@github.com>"
-
-EXPOSE 9000
-
-RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev unzip sudo bash gettext \
-	&& docker-php-ext-configure gd --with-freetype --with-jpeg \
-	&& docker-php-ext-install -j$(nproc) gd opcache mysqli pdo pdo_mysql \
-	&& rm -rf /usr/src/php/
+FROM php:8-fpm-alpine AS downloader
 
 ARG MODX_VERSION 2.8.7
 ENV MODX_VERSION ${MODX_VERSION}
 
+WORKDIR /
+
+RUN apk add --no-cache unzip
+
 # upstream tarballs include ./modx-${MODX_VERSION}/
-RUN cd / \
-  && echo ${MODX_VERSION} \
-  && curl -o modx.zip -SL http://modx.com/download/direct/modx-${MODX_VERSION}-pl.zip \
-	&& unzip -q modx.zip -d /usr/src \
+RUN echo ${MODX_VERSION} \
+  && curl -o modx.zip -SL https://modx.com/download/direct/modx-${MODX_VERSION}-pl.zip
+
+RUN unzip -oaq modx.zip -d /usr/src \
 	&& rm -rf /modx \
 	&& mkdir -p /modx /usr/src/modx \
   && mv /usr/src/modx-${MODX_VERSION}-pl/ /modx/public \
@@ -39,6 +34,19 @@ RUN cd / \
   && rm modx.zip \
 	&& chown -R www-data:www-data /modx
 
+FROM php:8-fpm-alpine
+
+LABEL org.opencontainers.image.authors="Jan Giesenberg <749@github.com>"
+
+EXPOSE 9000
+
+RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev sudo bash gettext \
+	&& docker-php-ext-configure gd --with-freetype --with-jpeg \
+	&& docker-php-ext-install -j$(nproc) gd opcache mysqli pdo pdo_mysql \
+	&& rm -rf /usr/src/php/
+
+COPY --from=downloader --chown=www-data /usr/src/modx /usr/src/modx
+COPY --from=downloader --chown=www-data /modx /modx
 COPY --chown=www-data files/docker-entrypoint.sh /entrypoint.sh
 COPY --chown=www-data:www-data files/docker-entrypoint /docker-entrypoint
 COPY files/php-config/ /usr/local/etc/php/conf.d/
