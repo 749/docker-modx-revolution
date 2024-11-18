@@ -35,7 +35,7 @@ RUN cd / \
   && mv /usr/src/modx-${MODX_VERSION}-pl/ /modx/public \
 	&& find /modx -name 'ht.access' -exec bash -c 'rm $0' {} \; \
 	&& mv /modx/public/core /modx/ \
-	&& cp -r /modx/public/setup /usr/src/modx \
+	&& cp -r /modx/public/setup /modx/public/connectors /modx/public/manager /usr/src/modx \
   && rm modx.zip \
 	&& chown -R www-data:www-data /modx
 

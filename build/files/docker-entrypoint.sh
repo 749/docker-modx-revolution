@@ -65,7 +65,7 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 
 		chown www-data:www-data setup/config.xml
 
-    sudo -u www-data php setup/index.php --installmode=new
+		sudo -u www-data php setup/index.php --installmode=new
 
 		echo "$MODX_VERSION" >/modx/core/config/install_version.txt
 
@@ -87,6 +87,10 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 			fi
 
 			envsubst > config.xml </docker-entrypoint/upgrade.xml
+
+			echo >&2 "Updating manager/ and connectors/..."
+			rm -rf /modx/public/connectors/ /modx/public/manager/
+			cp -r /usr/src/modx/connectors /usr/src/modx/manager /modx/public/
 
 			chown -R www-data:www-data /modx
 
