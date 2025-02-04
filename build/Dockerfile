@@ -13,7 +13,7 @@
 
 FROM php:8-fpm-alpine AS downloader
 
-ARG MODX_VERSION 2.8.7
+ARG MODX_VERSION=2.8.8
 ENV MODX_VERSION=${MODX_VERSION}
 
 WORKDIR /
@@ -55,7 +55,7 @@ COPY --chown=www-data:www-data files/config.core.php /modx/config.core.php.tmpl
 RUN chmod +x /entrypoint.sh \
 	&& mkdir -p /modx/static/manager /modx/core/config /modx/core/packages /modx/core/components /modx/public/assets
 
-ARG MODX_VERSION 2.8.7
+ARG MODX_VERSION=2.8.8
 ENV MODX_VERSION=${MODX_VERSION}
 
 VOLUME /modx/static/manager
