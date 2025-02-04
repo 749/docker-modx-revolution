@@ -54,6 +54,13 @@ jobs:
         MODX_VERSION=$(curl "https://api.github.com/repos/modxcms/revolution/tags" | jq -r '[.[]|select(.name | startswith("v2.")).name] | first')
         DOCKER_IMAGE=g749/$IMAGE_NAME
 
+        if [ -z "$MODX_VERSION" ]; then
+          echo "ERROR: modx version not found!"
+          exit 1
+        else
+          echo "found modx version: $MODX_VERSION"
+        fi
+
         # Strip git ref prefix from version
         VERSION_FULL=$(echo "${MODX_VERSION:1}" | sed 's,\-.*$,,')
         VERSION_MINOR=$(echo "$VERSION_FULL" | sed 's,\.[^.]*$,,')

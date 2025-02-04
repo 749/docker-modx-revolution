@@ -21,8 +21,9 @@ WORKDIR /
 RUN apk add --no-cache unzip
 
 # upstream tarballs include ./modx-${MODX_VERSION}/
-RUN echo ${MODX_VERSION} \
-  && curl -o modx.zip -SL https://modx.com/download/direct/modx-${MODX_VERSION}-pl.zip
+RUN if [ -z "${MODX_VERSION:-}" ]; then exit 1; fi \
+  && echo "${MODX_VERSION:-}" \
+  && curl -o modx.zip -SL https://modx.com/download/direct/modx-${MODX_VERSION:-}-pl.zip
 
 RUN unzip -oaq modx.zip -d /usr/src \
 	&& rm -rf /modx \
