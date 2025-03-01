@@ -10,7 +10,7 @@
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-version: '3'
+version: "3"
 services:
   modx_web:
     image: caddy:2
@@ -44,18 +44,18 @@ services:
       - http_net
       - db_net
   modx_mysql:
-    image: 'mariadb:10'
+    image: "mariadb:10"
     restart: unless-stopped
     env_file: .env
     environment:
       MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: false
       MARIADB_RANDOM_ROOT_PASSWORD: true
     volumes:
-      - 'mariadb_data:/var/lib/mysql:rw'
+      - "mariadb_data:/var/lib/mysql:rw"
     networks:
       - db_net
 
-volumes: 
+volumes:
   caddy_data:
   mariadb_data:
   modx_config:

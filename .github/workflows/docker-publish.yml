@@ -5,99 +5,106 @@ on:
     # Publish `main` as Docker `edge` image.
     branches:
       - main
-
     # Publish `v1.2.3` tags as releases.
     tags:
       - v*
-
-  # Run tests for any PRs.
   pull_request:
-
   schedule:
-    # run every sunday at 00:00
-    - cron: '0 0 * * 0'
+    # run every Sunday at 00:00 UTC
+    - cron: "0 0 * * 0"
 
 env:
-  IMAGE_NAME:        modx-revolution
-  IMAGE_TITLE:       modx-revolution
+  IMAGE_NAME: modx-revolution
+  IMAGE_TITLE: modx-revolution
   IMAGE_DESCRIPTION: Autoupdating Docker container for ModX Revolution > 2.7.0
 
 jobs:
-  # Build images.
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: all
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
-    - name: Set up Docker Buildx
-      id: buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to DockerHub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Prepare
-      id: prep
-      run: |
-        # find the newest 2.X release
-        MODX_VERSION=$(curl "https://api.github.com/repos/modxcms/revolution/tags" | jq -r '[.[]|select(.name | startswith("v2.")).name] | first')
-        DOCKER_IMAGE=g749/$IMAGE_NAME
+      - name: Prepare
+        id: prep
+        run: |
+          set -euo pipefail
 
-        if [ -z "$MODX_VERSION" ]; then
-          echo "ERROR: modx version not found!"
-          exit 1
-        else
-          echo "found modx version: $MODX_VERSION"
-        fi
+          # Find the newest 2.X release from ModX repository
+          MODX_VERSION=$(curl "https://api.github.com/repos/modxcms/revolution/tags" | jq -r '[.[]|select(.name | startswith("v2.")).name] | first')
+          DOCKER_IMAGE=g749/$IMAGE_NAME
 
-        # Strip git ref prefix from version
-        VERSION_FULL=$(echo "${MODX_VERSION:1}" | sed 's,\-.*$,,')
-        VERSION_MINOR=$(echo "$VERSION_FULL" | sed 's,\.[^.]*$,,')
-        VERSION_MAJOR=$(echo "$VERSION_MINOR" | sed 's,\.[^.]*$,,')
+          if [ -z "$MODX_VERSION" ]; then
+            echo "ERROR: modx version not found!"
+            exit 1
+          else
+            echo "Found modx version: $MODX_VERSION"
+          fi
 
-        # Use Docker `edge` tag convention and pr-<number> for pull requests
-        [ ${{ github.ref }} == "refs/head/main" ] && VERSION_FULL=edge
-        [ ${{ github.ref }} == refs/pull/* ] && VERSION_FULL=pr-${{ github.event.number }}
+          # Strip the 'v' prefix and any suffix after a hyphen
+          VERSION_FULL=$(echo "${MODX_VERSION:1}" | sed 's,-.*$,,' )
+          VERSION_MINOR=$(echo "$VERSION_FULL" | sed 's,\.[^.]*$,,' )
+          VERSION_MAJOR=$(echo "$VERSION_MINOR" | sed 's,\.[^.]*$,,')
 
-        TAGS="${DOCKER_IMAGE}:${VERSION_FULL}"  
-        [ "$VERSION_FULL" != "edge" -a ${VERSION_FULL:0:3} != "pr-" ] && TAGS="$TAGS,${DOCKER_IMAGE}:${VERSION_MINOR},${DOCKER_IMAGE}:${VERSION_MAJOR},${DOCKER_IMAGE}:latest"
+          # Override version for main branch and pull requests
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            VERSION_FULL=edge
+          fi
+          if [[ "${{ github.ref }}" == refs/pull/* ]]; then
+            VERSION_FULL=pr-${{ github.event.number }}
+          fi
 
-        echo "MODX_VERSION=${VERSION_FULL}" >> $GITHUB_ENV
-        echo "MODX_VERSION=${VERSION_FULL}"
-        echo "TAGS=${TAGS}"
-        echo ::set-output name=version::${VERSION_FULL}
-        echo ::set-output name=tags::${TAGS}
-        echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          TAGS="${DOCKER_IMAGE}:${VERSION_FULL}"
+          if [[ "$VERSION_FULL" != "edge" && ${VERSION_FULL:0:3} != "pr-" ]]; then
+            TAGS="$TAGS,${DOCKER_IMAGE}:${VERSION_MINOR},${DOCKER_IMAGE}:${VERSION_MAJOR},${DOCKER_IMAGE}:latest"
+          fi
 
-    - name: Build and push
-      id: docker_build
-      uses: docker/build-push-action@v6
-      with:
-        builder: ${{ steps.buildx.outputs.name }}
-        context: build/
-        platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.prep.outputs.tags }}
-        build-args: |
-          MODX_VERSION=${{ steps.prep.outputs.version }}
-        labels: |
-          org.opencontainers.image.title=$IMAGE_TITLE
-          org.opencontainers.image.description=$IMAGE_DESCRIPTION
-          org.opencontainers.image.vendor=g749
-          org.opencontainers.image.url=${{ github.event.repository.html_url }}
-          org.opencontainers.image.source=${{ github.event.repository.html_url }}
-          org.opencontainers.image.created=${{ steps.prep.outputs.created }}
-          org.opencontainers.image.revision=${{ github.sha }}
-          org.opencontainers.image.version=${{ steps.prep.outputs.version }}
+          # Export values for later steps
+          echo "MODX_VERSION=${VERSION_FULL}" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> $GITHUB_ENV
 
+          # Set step outputs for use in later steps
+          echo "version=${VERSION_FULL}" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+          echo "TAGS: ${TAGS}"
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: build/
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.prep.outputs.tags }}
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:cache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:cache,mode=max
+          build-args: |
+            MODX_VERSION="${{ steps.prep.outputs.version }}"
+          labels: |
+            org.opencontainers.image.title=$IMAGE_TITLE
+            org.opencontainers.image.description=$IMAGE_DESCRIPTION
+            org.opencontainers.image.vendor=g749
+            org.opencontainers.image.url=${{ github.event.repository.html_url }}
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
