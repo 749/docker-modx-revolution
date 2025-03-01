@@ -13,8 +13,8 @@
 
 FROM php:8-fpm-alpine AS downloader
 
-ARG MODX_VERSION=2.8.8
-ENV MODX_VERSION=${MODX_VERSION}
+ARG SOURCE_VERSION=2.8.8
+ENV MODX_VERSION=${SOURCE_VERSION}
 
 WORKDIR /
 
@@ -23,7 +23,7 @@ RUN apk add --no-cache unzip
 # upstream tarballs include ./modx-${MODX_VERSION}/
 RUN if [ -z "${MODX_VERSION:-}" ]; then exit 1; fi \
   && echo "${MODX_VERSION:-}" \
-  && curl -o modx.zip -SL https://modx.com/download/direct/modx-${MODX_VERSION:-}-pl.zip
+  && curl --fail -o modx.zip -SL "https://modx.com/download/direct/modx-${MODX_VERSION:-}-pl.zip"
 
 RUN unzip -oaq modx.zip -d /usr/src \
 	&& rm -rf /modx \
