@@ -59,19 +59,19 @@ jobs:
 
           # Strip the 'v' prefix and any suffix after a hyphen
           VERSION_FULL=$(echo "${MODX_VERSION:1}" | sed 's,-.*$,,' )
+          TAG_FULL="$VERSION_FULL"
           VERSION_MINOR=$(echo "$VERSION_FULL" | sed 's,\.[^.]*$,,' )
           VERSION_MAJOR=$(echo "$VERSION_MINOR" | sed 's,\.[^.]*$,,')
 
           # Override version for main branch and pull requests
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            VERSION_FULL=edge
-          fi
-          if [[ "${{ github.ref }}" == refs/pull/* ]]; then
-            VERSION_FULL=pr-${{ github.event.number }}
+            TAG_FULL=edge
+          elif [[ "${{ github.ref }}" == refs/pull/* ]]; then
+            TAG_FULL="pr-${{ github.event.number }}"
           fi
 
-          TAGS="${DOCKER_IMAGE}:${VERSION_FULL}"
-          if [[ "$VERSION_FULL" != "edge" && ${VERSION_FULL:0:3} != "pr-" ]]; then
+          TAGS="${DOCKER_IMAGE}:${TAG_FULL}"
+          if [[ "$TAG_FULL" != "edge" && ${TAG_FULL:0:3} != "pr-" ]]; then
             TAGS="$TAGS,${DOCKER_IMAGE}:${VERSION_MINOR},${DOCKER_IMAGE}:${VERSION_MAJOR},${DOCKER_IMAGE}:latest"
           fi
 
