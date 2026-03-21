@@ -13,7 +13,7 @@
 
 FROM php:8-fpm-alpine AS downloader
 
-ARG SOURCE_VERSION=2.8.8
+ARG SOURCE_VERSION=3.2.0
 ENV MODX_VERSION=${SOURCE_VERSION}
 
 WORKDIR /
@@ -43,7 +43,7 @@ EXPOSE 9000
 
 RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev sudo bash gettext \
 	&& docker-php-ext-configure gd --with-freetype --with-jpeg \
-	&& docker-php-ext-install -j$(nproc) gd opcache mysqli pdo pdo_mysql \
+	&& docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql \
 	&& rm -rf /usr/src/php/
 
 COPY --from=downloader --chown=www-data /usr/src/modx /usr/src/modx

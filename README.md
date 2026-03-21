@@ -1,6 +1,7 @@
 # ModX Revolution Docker
 
 ![Docker Build](https://github.com/749/docker-modx-revolution/actions/workflows/docker-publish.yml/badge.svg)
+[![Docker Image Version](https://img.shields.io/docker/stars/g749/modx-revolution)](https://hub.docker.com/r/g749/modx-revolution)
 
 A docker setup that can auto-update ModX Revolution.
 
@@ -14,9 +15,9 @@ _This is a heavily modified version of the FPM variant of [the official Docker I
 
 ## General
 
-The build is completely automated, running every sunday at 00:00/GMT+0.
+The build is completely automated, running every Sunday at 00:00/GMT+0.
 
-It pulls in the latest 2.X version of ModX Revolution, based on the tags on the [Modx Revolution Tags](https://github.com/modxcms/revolution/tags).
+It pulls in the latest version of ModX Revolution, based on the tags on the [Modx Revolution Tags](https://github.com/modxcms/revolution/tags).
 
 The build produces convenience tags so `2.8.3` is also tagged `2.8` and `2`
 
@@ -24,7 +25,9 @@ The build produces convenience tags so `2.8.3` is also tagged `2.8` and `2`
 
 ## Support
 
-The image is created for the following platforms, however I only use arm64 and amd64 so those are actively tested. Support for the others may be dropped if the build proves to difficult to maintain.
+The image is created for the following platforms:
+
+I only use arm64 and amd64 so those are actively tested. Support for the others may be dropped if the build proves to difficult to maintain.
 
 <!-- prettier-ignore -->
 | Platform     | Support |
