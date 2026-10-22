@@ -19,15 +19,37 @@ on:
     - cron: "0 0 * * 0"
 
 env:
-  IMAGE_NAME: modx-revolution
+  IMAGE_REPO: g749/modx-revolution
   IMAGE_TITLE: modx-revolution
   IMAGE_DESCRIPTION: Autoupdating Docker container for ModX Revolution > 2.7.0
-  # Global variable for the GitHub tags API URL.
-  GITHUB_TAG_API_URL: "https://api.github.com/repos/modxcms/revolution/tags"
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest release in every MODX major line
+        id: versions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/plan_builds.py >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    concurrency:
+      group: docker-publish-${{ matrix.major }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,58 +70,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Prepare
-        id: prep
-        run: |
-          set -euo pipefail
-          # Retrieve the latest tag from the upstream repository that matches the specified version pattern.
-          # This makes it easy to adjust for a different version range or URL.
-          SOURCE_TAG=$(curl --fail-with-body --retry 3 --location "$GITHUB_TAG_API_URL" | jq -r '[.[] | select(.name | endswith("-pl")).name] | first')
-          IMAGE_REPO=g749/$IMAGE_NAME
-
-          if [ -z "$SOURCE_TAG" ]; then
-            echo "ERROR: Source version not found!"
-            exit 1
-          else
-            echo "Found source version: $SOURCE_TAG"
-          fi
-
-          # Strip "v" prefix and remove any git ref suffix from the version and set a default if necessary.
-          BASE_VERSION=$(echo "${SOURCE_TAG:1}" | sed 's,\-.*$,,' )
-          FINAL_VERSION=$BASE_VERSION
-
-          # Compute the minor and major version numbers from the base version.
-          VERSION_MINOR=$(echo "$BASE_VERSION" | sed 's,\.[^.]*$,,' )
-          VERSION_MAJOR=$(echo "$VERSION_MINOR" | sed 's,\.[^.]*$,,' )
-
-          # Determine the Docker tag based on the event trigger:
-          # - For scheduled and manual runs on main, use the computed version.
-          # - For pushes to main, override with 'edge'.
-          # - For pull requests, override with 'pr-<number>'.
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            if [[ "${{ github.event_name }}" == "push" ]]; then
-              FINAL_VERSION=edge
-            else
-              echo "Versioned run on main branch: using computed version tag ($FINAL_VERSION)"
-            fi
-          elif [[ "${{ github.ref }}" == refs/pull/* ]]; then
-            FINAL_VERSION="pr-${{ github.event.number }}"
-          fi
-
-          # Construct the Docker image tags.
-          TAGS="${IMAGE_REPO}:${FINAL_VERSION}"
-          if [[ "$FINAL_VERSION" != "edge" && "${FINAL_VERSION:0:3}" != "pr-" ]]; then
-            TAGS="$TAGS,${IMAGE_REPO}:${VERSION_MINOR},${IMAGE_REPO}:${VERSION_MAJOR},${IMAGE_REPO}:latest"
-          fi
-
-          echo "TAGS=${TAGS}"
-
-          # Set step outputs for use in later steps.
-          echo "source_version=${BASE_VERSION}" | tee -a $GITHUB_OUTPUT
-          echo "image_repo=${IMAGE_REPO}" | tee -a $GITHUB_OUTPUT
-          echo "version=${FINAL_VERSION}" | tee -a $GITHUB_OUTPUT
-          echo "tags=${TAGS}" | tee -a $GITHUB_OUTPUT
-          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" | tee -a $GITHUB_OUTPUT
+      - name: Prepare image metadata
+        id: metadata
+        run: echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         id: docker_build
@@ -110,17 +83,17 @@ jobs:
           context: build/
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.prep.outputs.tags }}
-          cache-from: type=registry,ref=${{ steps.prep.outputs.image_repo }}:cache
-          cache-to: type=registry,ref=${{ steps.prep.outputs.image_repo }}:cache,mode=max
+          tags: ${{ matrix.tags }}
+          cache-from: type=registry,ref=${{ env.IMAGE_REPO }}:cache-${{ matrix.major }}
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}:cache-{1},mode=max', env.IMAGE_REPO, matrix.major) || '' }}
           build-args: |
-            SOURCE_VERSION=${{ steps.prep.outputs.source_version }}
+            SOURCE_VERSION=${{ matrix.version }}
           labels: |
-            org.opencontainers.image.title=$IMAGE_TITLE
-            org.opencontainers.image.description=$IMAGE_DESCRIPTION
+            org.opencontainers.image.title=${{ env.IMAGE_TITLE }}
+            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.vendor=g749
             org.opencontainers.image.url=${{ github.event.repository.html_url }}
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
-            org.opencontainers.image.created=${{ steps.prep.outputs.created }}
+            org.opencontainers.image.created=${{ steps.metadata.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
+            org.opencontainers.image.version=${{ matrix.version }}

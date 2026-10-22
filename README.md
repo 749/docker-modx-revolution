@@ -15,15 +15,15 @@ _This is a heavily modified version of the FPM variant of [the official Docker I
 
 ## General
 
-The build is completely automated, running every Sunday at 00:00/GMT+0.
+The build runs every Sunday at 00:00 UTC. It selects the highest stable patch in the highest minor release of every MODX major version starting with 2, then builds each one with the latest stable PHP FPM Alpine image.
 
-To publish a versioned build manually, select **Actions → Docker Build → Run workflow** and choose `main`. The run publishes the latest upstream version and its minor, major, and `latest` tags.
+To publish all major lines manually, select **Actions → Docker Build → Run workflow** and choose `main`. Pushes to `main` also update all major lines; the newest major additionally gets `edge`.
 
 It pulls in the latest version of ModX Revolution, based on the tags on the [Modx Revolution Tags](https://github.com/modxcms/revolution/tags).
 
-The build produces convenience tags so `2.8.3` is also tagged `2.8` and `2`
+Each build publishes its full version, minor, and major tags. For example, MODX `2.8.9` is published as `2.8.9`, `2.8`, and `2`. The newest major version also gets `latest`.
 
-**NOTE**: currently the build does not support building new versions for older minor tags. For Example the current minor is `2.8` and a new patch version commes out for `2.7`. A discussion issue is open at: [#1](https://github.com/749/docker-modx-revolution/issues/1)
+Older minor lines within a major version are not built. For example, a new `2.7` patch will not update the image when `2.8` is the latest minor line. See [#1](https://github.com/749/docker-modx-revolution/issues/1).
 
 ## Support
 

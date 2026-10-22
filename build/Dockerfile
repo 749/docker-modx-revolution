@@ -11,9 +11,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-FROM php:8-fpm-alpine AS downloader
+ARG PHP_IMAGE=php:fpm-alpine
+ARG SOURCE_VERSION=3.2.4
 
-ARG SOURCE_VERSION=3.2.0
+FROM ${PHP_IMAGE} AS downloader
+
+ARG SOURCE_VERSION
 ENV MODX_VERSION=${SOURCE_VERSION}
 
 WORKDIR /
@@ -29,13 +32,15 @@ RUN unzip -oaq modx.zip -d /usr/src \
 	&& rm -rf /modx \
 	&& mkdir -p /modx /usr/src/modx \
   && mv /usr/src/modx-${MODX_VERSION}-pl/ /modx/public \
-	&& find /modx -name 'ht.access' -exec bash -c 'rm $0' {} \; \
+	&& find /modx -name 'ht.access' -exec rm -f {} \; \
 	&& mv /modx/public/core /modx/ \
 	&& cp -r /modx/public/setup /modx/public/connectors /modx/public/manager /usr/src/modx \
   && rm modx.zip \
 	&& chown -R www-data:www-data /modx
 
-FROM php:8-fpm-alpine
+FROM ${PHP_IMAGE}
+
+ARG SOURCE_VERSION
 
 LABEL org.opencontainers.image.authors="Jan Giesenberg <749@github.com>"
 
@@ -56,8 +61,7 @@ COPY --chown=www-data:www-data files/config.core.php /modx/config.core.php.tmpl
 RUN chmod +x /entrypoint.sh \
 	&& mkdir -p /modx/static/manager /modx/core/config /modx/core/packages /modx/core/components /modx/public/assets
 
-ARG MODX_VERSION=2.8.8
-ENV MODX_VERSION=${MODX_VERSION}
+ENV MODX_VERSION=${SOURCE_VERSION}
 
 VOLUME /modx/static/manager
 VOLUME /modx/core/config
