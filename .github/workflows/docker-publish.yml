@@ -73,14 +73,14 @@ jobs:
           VERSION_MAJOR=$(echo "$VERSION_MINOR" | sed 's,\.[^.]*$,,' )
 
           # Determine the Docker tag based on the event trigger:
-          # - For scheduled runs on the main branch, use the computed version.
-          # - For push or manual runs on main, override with 'edge'.
+          # - For scheduled and manual runs on main, use the computed version.
+          # - For pushes to main, override with 'edge'.
           # - For pull requests, override with 'pr-<number>'.
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            if [[ "${{ github.event_name }}" == "push" ]]; then
               FINAL_VERSION=edge
             else
-              echo "Scheduled run on main branch: using computed version tag ($FINAL_VERSION)"
+              echo "Versioned run on main branch: using computed version tag ($FINAL_VERSION)"
             fi
           elif [[ "${{ github.ref }}" == refs/pull/* ]]; then
             FINAL_VERSION="pr-${{ github.event.number }}"
