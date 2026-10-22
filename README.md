@@ -17,6 +17,8 @@ _This is a heavily modified version of the FPM variant of [the official Docker I
 
 The build is completely automated, running every Sunday at 00:00/GMT+0.
 
+To publish an `edge` build manually, select **Actions → Docker Build → Run workflow** and choose `main`.
+
 It pulls in the latest version of ModX Revolution, based on the tags on the [Modx Revolution Tags](https://github.com/modxcms/revolution/tags).
 
 The build produces convenience tags so `2.8.3` is also tagged `2.8` and `2`

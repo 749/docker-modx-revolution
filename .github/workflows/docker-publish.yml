@@ -1,6 +1,7 @@
 name: Docker Build
 
 on:
+  workflow_dispatch:
   push:
     # Publish 'main' as Docker 'edge' image.
     branches:
@@ -73,7 +74,7 @@ jobs:
 
           # Determine the Docker tag based on the event trigger:
           # - For scheduled runs on the main branch, use the computed version.
-          # - For push events on main (non-scheduled), override with 'edge'.
+          # - For push or manual runs on main, override with 'edge'.
           # - For pull requests, override with 'pr-<number>'.
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             if [[ "${{ github.event_name }}" != "schedule" ]]; then
