@@ -44,7 +44,7 @@ services:
       - http_net
       - db_net
   modx_mysql:
-    image: "mariadb:10"
+    image: "mariadb:13"
     restart: unless-stopped
     env_file: .env
     environment:
