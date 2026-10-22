@@ -29,7 +29,7 @@ services:
     networks:
       - http_net
   modx_php:
-    image: g749/modx-revolution:2
+    image: g749/modx-revolution:3
     restart: unless-stopped
     env_file: .env
     depends_on:
