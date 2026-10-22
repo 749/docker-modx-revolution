@@ -10,7 +10,6 @@
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-version: "3"
 services:
   modx_web:
     image: caddy:2
@@ -33,7 +32,8 @@ services:
     restart: unless-stopped
     env_file: .env
     depends_on:
-      - modx_mysql
+      modx_mysql:
+        condition: service_healthy
     volumes:
       - modx_config:/modx/core/config:rw
       - modx_packages:/modx/core/packages:rw
@@ -50,6 +50,12 @@ services:
     environment:
       MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: false
       MARIADB_RANDOM_ROOT_PASSWORD: true
+      MARIADB_AUTO_UPGRADE: 1
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
       - "mariadb_data:/var/lib/mysql:rw"
     networks:

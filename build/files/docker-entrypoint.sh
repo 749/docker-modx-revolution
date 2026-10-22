@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -ex
+set -e -o pipefail
 
 PATH_MODX_CORE=/modx/core
 PATH_MODX_PUBLIC=/modx/public
@@ -66,6 +66,10 @@ if [[ "$1" == apache2* ]] || [ "$1" == php-fpm ]; then
 		chown www-data:www-data setup/config.xml
 
 		sudo -u www-data php setup/index.php --installmode=new
+		if [ ! -s /modx/core/config/config.inc.php ]; then
+			echo >&2 'error: MODX setup did not create a configuration file'
+			exit 1
+		fi
 
 		echo "$MODX_VERSION" >/modx/core/config/install_version.txt
 

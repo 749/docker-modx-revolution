@@ -46,9 +46,9 @@ LABEL org.opencontainers.image.authors="Jan Giesenberg <749@github.com>"
 
 EXPOSE 9000
 
-RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev sudo bash gettext \
+RUN apk add --no-cache rsync freetype-dev libpng-dev jpeg-dev libzip-dev sudo bash gettext \
 	&& docker-php-ext-configure gd --with-freetype --with-jpeg \
-	&& docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql \
+	&& docker-php-ext-install -j$(nproc) gd mysqli pdo pdo_mysql zip \
 	&& rm -rf /usr/src/php/
 
 COPY --from=downloader --chown=www-data /usr/src/modx /usr/src/modx
