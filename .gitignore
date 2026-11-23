@@ -202,3 +202,4 @@ $RECYCLE.BIN/
 site/
 !site/**/.gitkeep
 .env
+/.gitlab-ci-lsp-cache/
